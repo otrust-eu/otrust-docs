@@ -1,0 +1,1118 @@
+# OTRUST API Documentation
+
+## Introduction
+
+The OTRUST API provides a comprehensive interface for interacting with the OTRUST distributed truth protocol. This RESTful API allows you to create, verify, and query claims, manage users, and interact with the underlying blockchain.
+
+## Base URL
+
+All API endpoints are relative to the base URL of your OTRUST server:
+
+```
+https://api.yourdomain.com/api
+```
+
+For local development:
+
+```
+http://localhost:3000/api
+```
+
+## Authentication
+
+Most endpoints require authentication using JSON Web Tokens (JWT). To authenticate:
+
+1. Register a user or log in to obtain a token
+2. Include the token in the `Authorization` header of your requests:
+
+```
+Authorization: Bearer your_jwt_token_here
+```
+
+### Authentication Endpoints
+
+#### Register a New User
+
+```
+POST /auth/register
+```
+
+**Request Body:**
+```json
+{
+  "publicKey": "-----BEGIN PUBLIC KEY-----\nMIIBIjANBgkqhkiG9w0BAQEFAAOC...",
+  "signature": "3046022100a5861...",
+  "timestamp": 1620000000000
+}
+```
+
+The signature must be created by signing the following payload with your private key:
+```json
+{
+  "action": "register",
+  "publicKey": "your_public_key",
+  "timestamp": 1620000000000
+}
+```
+
+**Response:**
+```json
+{
+  "message": "User registered successfully",
+  "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+  "user": {
+    "publicKey": "-----BEGIN PUBLIC KEY-----\nMIIBIjANBgkqhkiG9w0BAQEFAAOC...",
+    "displayName": null,
+    "score": 1,
+    "role": "user"
+  }
+}
+```
+
+#### Log In
+
+```
+POST /auth/login
+```
+
+**Request Body:**
+```json
+{
+  "publicKey": "-----BEGIN PUBLIC KEY-----\nMIIBIjANBgkqhkiG9w0BAQEFAAOC...",
+  "signature": "3046022100a5861...",
+  "timestamp": 1620000000000
+}
+```
+
+The signature must be created by signing the following payload with your private key:
+```json
+{
+  "action": "login",
+  "publicKey": "your_public_key",
+  "timestamp": 1620000000000
+}
+```
+
+**Response:**
+```json
+{
+  "message": "Login successful",
+  "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+  "user": {
+    "publicKey": "-----BEGIN PUBLIC KEY-----\nMIIBIjANBgkqhkiG9w0BAQEFAAOC...",
+    "displayName": "User123",
+    "score": 5,
+    "role": "user"
+  }
+}
+```
+
+#### Verify Token
+
+```
+GET /auth/verify
+```
+
+**Headers:**
+```
+Authorization: Bearer your_jwt_token_here
+```
+
+**Response:**
+```json
+{
+  "user": {
+    "publicKey": "-----BEGIN PUBLIC KEY-----\nMIIBIjANBgkqhkiG9w0BAQEFAAOC...",
+    "displayName": "User123",
+    "score": 5,
+    "role": "user"
+  }
+}
+```
+
+## Claims
+
+Claims are the core entity in OTRUST, representing statements that can be verified, disputed, or invalidated.
+
+### Create a Claim
+
+```
+POST /claim
+```
+
+**Headers:**
+```
+Authorization: Bearer your_jwt_token_here
+```
+
+**Request Body:**
+```json
+{
+  "claim": "The Earth orbits the Sun",
+  "evidence": [
+    "https://example.com/evidence1",
+    "https://example.com/evidence2"
+  ],
+  "signature": "3046022100a5861...",
+  "publicKey": "-----BEGIN PUBLIC KEY-----\nMIIBIjANBgkqhkiG9w0BAQEFAAOC...",
+  "type": "factual",
+  "timestamp": 1620000000000,
+  "semantic": {
+    "subject": "Earth",
+    "predicate": "orbits",
+    "object": "Sun"
+  }
+}
+```
+
+The signature must be created by signing the following payload with your private key:
+```json
+{
+  "claim": "The Earth orbits the Sun",
+  "evidence": ["https://example.com/evidence1", "https://example.com/evidence2"],
+  "publicKey": "your_public_key",
+  "type": "factual",
+  "timestamp": 1620000000000,
+  "semantic": {
+    "subject": "Earth",
+    "predicate": "orbits",
+    "object": "Sun"
+  }
+}
+```
+
+**Response:**
+```json
+{
+  "message": "Claim registered",
+  "id": "a1b2c3d4e5f6...",
+  "conflicts": [],
+  "blockchainStatus": "pending"
+}
+```
+
+### Get All Claims
+
+```
+GET /claims
+```
+
+**Query Parameters:**
+- `page` (integer, default: 1): Page number
+- `limit` (integer, default: 50): Items per page
+- `type` (string): Filter by claim type
+- `publicKey` (string): Filter by author
+- `subject` (string): Filter by semantic subject
+- `predicate` (string): Filter by semantic predicate
+- `object` (string): Filter by semantic object
+- `verified` (boolean): Filter by verification status
+- `search` (string): Text search query
+- `fromDate` (integer): Filter by timestamp, start date
+- `toDate` (integer): Filter by timestamp, end date
+- `sort` (string): Sort by "credibility" (default), "oldest", or "newest"
+
+**Response:**
+```json
+{
+  "claims": [
+    {
+      "id": "a1b2c3d4e5f6...",
+      "claim": "The Earth orbits the Sun",
+      "publicKey": "-----BEGIN PUBLIC KEY-----\nMIIBIjANBgkqhkiG9w0BAQEFAAOC...",
+      "type": "factual",
+      "timestamp": 1620000000000,
+      "semantic": {
+        "subject": "Earth",
+        "predicate": "orbits",
+        "object": "Sun"
+      },
+      "credibilityScore": 8.5,
+      "blockchainRef": {
+        "blockHash": "0x1234..."
+      },
+      "proofChain": [
+        {
+          "action": "confirmed"
+        },
+        {
+          "action": "confirmed"
+        }
+      ]
+    },
+    // More claims...
+  ],
+  "meta": {
+    "page": 1,
+    "limit": 50,
+    "total": 120,
+    "totalPages": 3,
+    "hasNext": true,
+    "hasPrev": false
+  }
+}
+```
+
+### Get a Specific Claim
+
+```
+GET /claim/:id
+```
+
+**Parameters:**
+- `id` (string): The unique identifier of the claim
+
+**Response:**
+```json
+{
+  "claim": {
+    "id": "a1b2c3d4e5f6...",
+    "claim": "The Earth orbits the Sun",
+    "evidence": [
+      "https://example.com/evidence1",
+      "https://example.com/evidence2"
+    ],
+    "signature": "3046022100a5861...",
+    "publicKey": "-----BEGIN PUBLIC KEY-----\nMIIBIjANBgkqhkiG9w0BAQEFAAOC...",
+    "type": "factual",
+    "timestamp": 1620000000000,
+    "semantic": {
+      "subject": "Earth",
+      "predicate": "orbits",
+      "object": "Sun"
+    },
+    "proofChain": [
+      {
+        "claimId": "a1b2c3d4e5f6...",
+        "action": "confirmed",
+        "signature": "3046022100a5861...",
+        "publicKey": "-----BEGIN PUBLIC KEY-----\nMIIBIjANBgkqhkiG9w0BAQEFAAOC...",
+        "timestamp": 1620000100000,
+        "reason": "Confirmed by astronomical observations",
+        "confidence": 1.0
+      }
+    ],
+    "version": 1,
+    "credibilityScore": 8.5,
+    "blockchainRef": {
+      "transactionId": "a1b2c3d4e5f6...",
+      "blockHash": "0x1234...",
+      "blockIndex": 42,
+      "timestamp": 1620000200000
+    }
+  },
+  "credibility": {
+    "score": 8.5,
+    "confirmations": 2,
+    "disputes": 0,
+    "verifiedOnChain": true
+  },
+  "blockchainVerification": {
+    "blockHash": "0x1234...",
+    "blockIndex": 42,
+    "timestamp": "2021-05-03T00:03:20.000Z",
+    "verified": true
+  },
+  "relatedClaims": [
+    {
+      "id": "g7h8i9j0k1l2...",
+      "claim": "The Earth completes one orbit around the Sun in 365.25 days",
+      "credibilityScore": 7.2,
+      "timestamp": 1620001000000
+    }
+  ]
+}
+```
+
+### Update a Claim
+
+```
+PUT /claim/:id
+```
+
+**Headers:**
+```
+Authorization: Bearer your_jwt_token_here
+```
+
+**Parameters:**
+- `id` (string): The unique identifier of the claim
+
+**Request Body:**
+```json
+{
+  "signature": "3046022100a5861...",
+  "updates": {
+    "evidence": [
+      "https://example.com/evidence1",
+      "https://example.com/evidence2",
+      "https://example.com/evidence3"
+    ],
+    "claim": "The Earth orbits the Sun in an elliptical path",
+    "semantic": {
+      "object": "Sun in elliptical path"
+    }
+  }
+}
+```
+
+The signature must be created by signing the following payload with your private key:
+```json
+{
+  "id": "a1b2c3d4e5f6...",
+  "updates": {
+    "evidence": [
+      "https://example.com/evidence1",
+      "https://example.com/evidence2",
+      "https://example.com/evidence3"
+    ],
+    "claim": "The Earth orbits the Sun in an elliptical path",
+    "semantic": {
+      "object": "Sun in elliptical path"
+    }
+  },
+  "timestamp": 1620000000000
+}
+```
+
+**Response:**
+```json
+{
+  "message": "Claim updated",
+  "id": "a1b2c3d4e5f6...",
+  "version": 2
+}
+```
+
+### Verify a Claim Against Blockchain
+
+```
+GET /claim/:id/verify
+```
+
+**Parameters:**
+- `id` (string): The unique identifier of the claim
+
+**Response:**
+```json
+{
+  "claim": "a1b2c3d4e5f6...",
+  "verified": true,
+  "blockHash": "0x1234...",
+  "blockIndex": 42,
+  "timestamp": "2021-05-03T00:03:20.000Z",
+  "originalHash": "5678...",
+  "storedHash": "5678...",
+  "hashMatch": true,
+  "blockchainValid": true
+}
+```
+
+### Get Claim History
+
+```
+GET /claim/:id/history
+```
+
+**Parameters:**
+- `id` (string): The unique identifier of the claim
+
+**Response:**
+```json
+{
+  "id": "a1b2c3d4e5f6...",
+  "currentVersion": 2,
+  "history": [
+    {
+      "version": 1,
+      "timestamp": "2021-05-03T00:00:00.000Z",
+      "claim": "The Earth orbits the Sun",
+      "evidence": [
+        "https://example.com/evidence1",
+        "https://example.com/evidence2"
+      ],
+      "semantic": {
+        "subject": "Earth",
+        "predicate": "orbits",
+        "object": "Sun"
+      }
+    }
+  ]
+}
+```
+
+## Proofs
+
+Proofs are verifications, disputes, or invalidations of claims.
+
+### Add a Proof
+
+```
+POST /proof
+```
+
+**Headers:**
+```
+Authorization: Bearer your_jwt_token_here
+```
+
+**Request Body:**
+```json
+{
+  "claimId": "a1b2c3d4e5f6...",
+  "action": "confirmed",
+  "signature": "3046022100a5861...",
+  "publicKey": "-----BEGIN PUBLIC KEY-----\nMIIBIjANBgkqhkiG9w0BAQEFAAOC...",
+  "timestamp": 1620000100000,
+  "reason": "Confirmed by astronomical observations",
+  "confidence": 0.95
+}
+```
+
+The signature must be created by signing the following payload with your private key:
+```json
+{
+  "claimId": "a1b2c3d4e5f6...",
+  "action": "confirmed",
+  "publicKey": "your_public_key",
+  "timestamp": 1620000100000,
+  "reason": "Confirmed by astronomical observations",
+  "confidence": 0.95
+}
+```
+
+**Response:**
+```json
+{
+  "message": "Proof added",
+  "claimId": "a1b2c3d4e5f6...",
+  "credibility": {
+    "score": 8.5,
+    "confirmations": 3,
+    "disputes": 0,
+    "verifiedOnChain": true
+  },
+  "blockchainStatus": "pending"
+}
+```
+
+## Users
+
+User endpoints allow you to retrieve user information and update profiles.
+
+### Get User Information
+
+```
+GET /user/:pubkey
+```
+
+**Parameters:**
+- `pubkey` (string): The public key of the user
+
+**Response:**
+```json
+{
+  "publicKey": "-----BEGIN PUBLIC KEY-----\nMIIBIjANBgkqhkiG9w0BAQEFAAOC...",
+  "displayName": "User123",
+  "score": 5,
+  "verified": 10,
+  "disputed": 2,
+  "created_at": "2021-05-01T00:00:00.000Z",
+  "lastActive": "2021-05-03T00:00:00.000Z",
+  "stats": {
+    "claimsCount": 15,
+    "confirmedByOthers": 12,
+    "disputedByOthers": 3
+  },
+  "recentClaims": [
+    {
+      "id": "a1b2c3d4e5f6...",
+      "claim": "The Earth orbits the Sun",
+      "timestamp": 1620000000000,
+      "credibilityScore": 8.5,
+      "blockchainRef": {
+        "blockHash": "0x1234..."
+      }
+    }
+  ]
+}
+```
+
+### Update User Profile
+
+```
+PUT /user/profile
+```
+
+**Headers:**
+```
+Authorization: Bearer your_jwt_token_here
+```
+
+**Request Body:**
+```json
+{
+  "displayName": "NewUsername",
+  "email": "user@example.com"
+}
+```
+
+**Response:**
+```json
+{
+  "message": "Profile updated",
+  "user": {
+    "publicKey": "-----BEGIN PUBLIC KEY-----\nMIIBIjANBgkqhkiG9w0BAQEFAAOC...",
+    "displayName": "NewUsername",
+    "score": 5,
+    "role": "user"
+  }
+}
+```
+
+## Semantic Queries
+
+Semantic queries allow you to retrieve and analyze claims based on their semantic structure.
+
+### Get Claims with Subject and Predicate
+
+```
+GET /semantic/:subject/:predicate
+```
+
+**Parameters:**
+- `subject` (string): The semantic subject
+- `predicate` (string): The semantic predicate
+
+**Response:**
+```json
+{
+  "subject": "Earth",
+  "predicate": "orbits",
+  "objects": [
+    {
+      "object": "Sun",
+      "credibility": 8.5,
+      "claimId": "a1b2c3d4e5f6...",
+      "confirmations": 3,
+      "disputes": 0
+    },
+    {
+      "object": "Sun in elliptical path",
+      "credibility": 7.2,
+      "claimId": "g7h8i9j0k1l2...",
+      "confirmations": 2,
+      "disputes": 0
+    }
+  ],
+  "hasConsensus": false,
+  "consensusValue": null,
+  "claimsCount": 2
+}
+```
+
+### Advanced Semantic Query
+
+```
+POST /semantic/query
+```
+
+**Request Body:**
+```json
+{
+  "query": {
+    "subject": "Earth",
+    "predicate": "orbits",
+    "minCredibility": 5.0,
+    "verifiedOnly": true,
+    "format": "graph",
+    "limit": 10
+  }
+}
+```
+
+**Response (with format="graph"):**
+```json
+{
+  "nodes": [
+    { "id": "Earth" },
+    { "id": "Sun" },
+    { "id": "Moon" }
+  ],
+  "edges": [
+    {
+      "source": "Earth",
+      "predicate": "orbits",
+      "target": "Sun",
+      "weight": 8.5,
+      "id": "a1b2c3d4e5f6..."
+    },
+    {
+      "source": "Moon",
+      "predicate": "orbits",
+      "target": "Earth",
+      "weight": 7.8,
+      "id": "m7n8o9p0q1r2..."
+    }
+  ]
+}
+```
+
+**Response (without format="graph"):**
+```json
+{
+  "claims": [
+    {
+      "id": "a1b2c3d4e5f6...",
+      "subject": "Earth",
+      "predicate": "orbits",
+      "object": "Sun",
+      "credibility": 8.5,
+      "timestamp": 1620000000000
+    },
+    {
+      "id": "m7n8o9p0q1r2...",
+      "subject": "Moon",
+      "predicate": "orbits",
+      "object": "Earth",
+      "credibility": 7.8,
+      "timestamp": 1620010000000
+    }
+  ],
+  "count": 2
+}
+```
+
+## Search
+
+The search endpoint allows you to find claims by text or semantic content.
+
+### Search Claims
+
+```
+GET /search
+```
+
+**Query Parameters:**
+- `q` (string): Search query
+- `limit` (integer, default: 50): Maximum number of results
+
+**Response:**
+```json
+{
+  "results": [
+    {
+      "id": "a1b2c3d4e5f6...",
+      "claim": "The Earth orbits the Sun",
+      "publicKey": "-----BEGIN PUBLIC KEY-----\nMIIBIjANBgkqhkiG9w0BAQEFAAOC...",
+      "timestamp": 1620000000000,
+      "semantic": {
+        "subject": "Earth",
+        "predicate": "orbits",
+        "object": "Sun"
+      },
+      "credibilityScore": 8.5
+    }
+  ],
+  "count": 1,
+  "searchType": "text"
+}
+```
+
+## Blockchain
+
+The blockchain endpoints provide information about the underlying blockchain.
+
+### Get Blockchain Statistics
+
+```
+GET /blockchain/stats
+```
+
+**Response:**
+```json
+{
+  "blocks": 42,
+  "latestBlock": {
+    "index": 41,
+    "hash": "0x1234...",
+    "transactions": 5,
+    "timestamp": "2021-05-03T00:03:20.000Z"
+  },
+  "pendingTransactions": 3,
+  "isValid": true,
+  "difficulty": 2,
+  "totalTransactions": 120
+}
+```
+
+### Get Block Information
+
+```
+GET /blockchain/block/:hash
+```
+
+**Parameters:**
+- `hash` (string): The hash of the block
+
+**Response:**
+```json
+{
+  "index": 41,
+  "timestamp": "2021-05-03T00:03:20.000Z",
+  "hash": "0x1234...",
+  "previousHash": "0x5678...",
+  "nonce": 12345,
+  "merkleRoot": "0xabcd...",
+  "transactions": 5,
+  "transactionIds": [
+    "a1b2c3d4e5f6...",
+    "g7h8i9j0k1l2...",
+    "m7n8o9p0q1r2...",
+    "s7t8u9v0w1x2...",
+    "y7z8a9b0c1d2..."
+  ]
+}
+```
+
+### Force a New Block (Admin Only)
+
+```
+POST /blockchain/forceBlock
+```
+
+**Headers:**
+```
+Authorization: Bearer your_jwt_token_here
+```
+
+**Response:**
+```json
+{
+  "message": "New block mined",
+  "block": {
+    "index": 42,
+    "hash": "0x9876...",
+    "transactions": 3
+  }
+}
+```
+
+## System Statistics
+
+Get system-wide statistics about OTRUST.
+
+### Get System Statistics
+
+```
+GET /stats
+```
+
+**Response:**
+```json
+{
+  "stats": {
+    "claims": 120,
+    "users": 25,
+    "blockchainVerifiedClaims": 115,
+    "proofs": 350,
+    "conflicts": 5
+  },
+  "blockchain": {
+    "blocks": 42,
+    "transactions": 470,
+    "pendingTransactions": 3
+  },
+  "topClaims": [
+    {
+      "id": "a1b2c3d4e5f6...",
+      "claim": "The Earth orbits the Sun",
+      "credibilityScore": 8.5,
+      "publicKey": "-----BEGIN PUBLIC KEY-----\nMIIBIjANBgkqhkiG9w0BAQEFAAOC..."
+    }
+  ],
+  "topUsers": [
+    {
+      "publicKey": "-----BEGIN PUBLIC KEY-----\nMIIBIjANBgkqhkiG9w0BAQEFAAOC...",
+      "displayName": "User123",
+      "score": 15
+    }
+  ],
+  "recentActivity": [
+    {
+      "id": "y7z8a9b0c1d2...",
+      "claim": "Water is composed of hydrogen and oxygen",
+      "publicKey": "-----BEGIN PUBLIC KEY-----\nMIIBIjANBgkqhkiG9w0BAQEFAAOC...",
+      "timestamp": 1620050000000,
+      "type": "factual"
+    }
+  ]
+}
+```
+
+## System Maintenance (Admin Only)
+
+These endpoints are restricted to administrators.
+
+### Perform Maintenance
+
+```
+POST /system/maintenance
+```
+
+**Headers:**
+```
+Authorization: Bearer your_jwt_token_here
+```
+
+**Request Body:**
+```json
+{
+  "action": "recalculateCredibility"
+}
+```
+
+Valid actions:
+- `recalculateCredibility`: Recalculate all claim credibility scores
+- `cleanupOrphans`: Remove orphaned proofs
+- `validateBlockchain`: Validate blockchain integrity
+
+**Response:**
+```json
+{
+  "message": "Credibility recalculated",
+  "processed": 120
+}
+```
+
+### Export System Data
+
+```
+GET /system/export
+```
+
+**Headers:**
+```
+Authorization: Bearer your_jwt_token_here
+```
+
+**Query Parameters:**
+- `type` (string): Data type to export (blockchain, claims, users)
+
+**Response (type="blockchain"):**
+```json
+{
+  "blocks": [
+    {
+      "index": 0,
+      "timestamp": 1620000000000,
+      "data": [
+        {
+          "type": "genesis",
+          "data": "OTRUST Genesis Block",
+          "timestamp": 1620000000000
+        }
+      ],
+      "previousHash": "0",
+      "hash": "0xabcd...",
+      "nonce": 12345,
+      "merkleRoot": "0xefgh..."
+    }
+  ],
+  "pendingTransactions": []
+}
+```
+
+## Node Synchronization
+
+Synchronize data between OTRUST nodes.
+
+### Sync Data Between Nodes
+
+```
+POST /sync
+```
+
+**Headers:**
+```
+Authorization: Bearer your_jwt_token_here
+```
+
+**Request Body:**
+```json
+{
+  "claims": [
+    {
+      "id": "a1b2c3d4e5f6...",
+      "claim": "The Earth orbits the Sun",
+      "evidence": ["https://example.com/evidence1"],
+      "signature": "3046022100a5861...",
+      "publicKey": "-----BEGIN PUBLIC KEY-----\nMIIBIjANBgkqhkiG9w0BAQEFAAOC...",
+      "type": "factual",
+      "timestamp": 1620000000000,
+      "semantic": {
+        "subject": "Earth",
+        "predicate": "orbits",
+        "object": "Sun"
+      },
+      "proofChain": []
+    }
+  ],
+  "users": [
+    {
+      "publicKey": "-----BEGIN PUBLIC KEY-----\nMIIBIjANBgkqhkiG9w0BAQEFAAOC...",
+      "displayName": "User123",
+      "score": 5,
+      "verified": 10,
+      "disputed": 2
+    }
+  ],
+  "nodeId": "node1",
+  "signature": "3046022100a5861..."
+}
+```
+
+**Response:**
+```json
+{
+  "message": "Sync processed",
+  "processed": 1,
+  "skipped": 0,
+  "usersProcessed": 1
+}
+```
+
+## Health Check
+
+Check the health status of the OTRUST server.
+
+### Get Health Status
+
+```
+GET /health
+```
+
+**Response:**
+```json
+{
+  "status": "ok",
+  "version": "1.0.0",
+  "db": "connected",
+  "blockchain": {
+    "blocks": 42,
+    "isValid": true
+  },
+  "uptime": 3600,
+  "environment": "production"
+}
+```
+
+## API Documentation
+
+Get information about available API endpoints.
+
+### Get API Documentation
+
+```
+GET /api
+```
+
+**Response:**
+```json
+{
+  "version": "1.0.0",
+  "endpoints": {
+    "claims": {
+      "GET /api/claims": "Get all claims with pagination and filtering",
+      "GET /api/claim/:id": "Get a specific claim by ID",
+      "POST /api/claim": "Create a new claim",
+      "PUT /api/claim/:id": "Update an existing claim",
+      "GET /api/claim/:id/verify": "Verify a claim against the blockchain",
+      "GET /api/claim/:id/history": "Get the history of a claim"
+    },
+    "proofs": {
+      "POST /api/proof": "Add a proof to a claim"
+    },
+    "users": {
+      "GET /api/user/:pubkey": "Get information about a user",
+      "PUT /api/user/profile": "Update user profile"
+    },
+    "auth": {
+      "POST /api/auth/register": "Register a new user",
+      "POST /api/auth/login": "Log in",
+      "GET /api/auth/verify": "Verify authentication token"
+    },
+    "blockchain": {
+      "GET /api/blockchain/stats": "Get blockchain statistics",
+      "GET /api/blockchain/block/:hash": "Get a specific block",
+      "POST /api/blockchain/forceBlock": "Force a new block (admin only)"
+    },
+    "semantic": {
+      "GET /api/semantic/:subject/:predicate": "Get semantic claims",
+      "POST /api/semantic/query": "Advanced semantic queries"
+    },
+    "search": {
+      "GET /api/search": "Search claims"
+    },
+    "stats": {
+      "GET /api/stats": "Get system statistics"
+    },
+    "system": {
+      "POST /api/system/maintenance": "System maintenance (admin only)",
+      "GET /api/system/export": "Export system data (admin only)"
+    },
+    "sync": {
+      "POST /api/sync": "Synchronize with other OTRUST nodes (admin only)"
+    }
+  },
+  "documentation": "https://docs.otrust.eu"
+}
+```
+
+## Error Handling
+
+The API uses standard HTTP status codes to indicate success or failure:
+
+- `200 OK`: The request was successful
+- `201 Created`: The resource was successfully created
+- `400 Bad Request`: The request was invalid or malformed
+- `401 Unauthorized`: Authentication is required or failed
+- `403 Forbidden`: The authenticated user doesn't have permission
+- `404 Not Found`: The requested resource was not found
+- `409 Conflict`: The request conflicts with the current state
+- `500 Internal Server Error`: An error occurred on the server
+
+Error responses have the following structure:
+
+```json
+{
+  "error": "Error type",
+  "message": "Detailed error message"
+}
+```
+
+## Rate Limiting
+
+The API implements rate limiting to prevent abuse. The default limit is 100 requests per 15-minute window per IP address.
+
+When rate limited, you'll receive a `429 Too Many Requests` response:
+
+```json
+{
+  "error": "Too many requests",
+  "message": "Too many requests from this IP, please try again later"
+}
+```
+
+## Versioning
+
+The current API version is 1.0.0.
+
+Future API versions may be accessed by specifying a version in the URL:
+
+```
+https://api.yourdomain.com/api/v2/...
+```
+
+## Conclusion
+
+This documentation covers the core functionality of the OTRUST API. For more detailed information, examples, and tutorials, visit the [official documentation](https://docs.otrust.eu).
