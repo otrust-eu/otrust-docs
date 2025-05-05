@@ -1,6 +1,6 @@
 # OTRUST Deployment Guide
 
-This comprehensive guide covers the deployment options for OTRUST, including development, testing, and production environments. Follow these step-by-step instructions to get your OTRUST instance up and running.
+This guide covers the deployment options for OTRUST, including development, testing, and production environments. Follow these step-by-step instructions to get your OTRUST instance up and running.
 
 ## Table of Contents
 
@@ -597,7 +597,7 @@ pm2 logs otrust
 If you encounter issues not covered in this guide:
 
 1. Check the [GitHub Issues](https://github.com/otrust-eu/otrust-server/issues) for similar problems
-2. Search the [Documentation](https://docs.otrust.eu) for solutions
+2. Search the [Documentation](https://github.com/otrust-eu/otrust-docs) for solutions
 3. Open a new issue with detailed information about your problem
 
 ## Scaling OTRUST
@@ -638,4 +638,4 @@ To improve performance on a single server:
 
 This deployment guide covers the basics of setting up OTRUST in different environments. As your usage grows, you may need to adjust configurations and scaling strategies to meet your specific needs.
 
-For more detailed information, refer to the [official documentation](https://docs.otrust.eu) or reach out to the OTRUST community.
+For more detailed information, refer to the [official documentation](https://github.com/otrust-eu/otrust-docs) or reach out to the OTRUST community.
