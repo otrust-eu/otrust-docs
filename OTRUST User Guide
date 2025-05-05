@@ -1,0 +1,434 @@
+# OTRUST User Guide
+
+This guide provides step-by-step instructions for using the OTRUST distributed truth protocol. Whether you're creating claims, verifying others' statements, or searching for verified information, this document will help you navigate the OTRUST ecosystem.
+
+## Introduction to OTRUST
+
+OTRUST is a distributed verification system that combines cryptographic verification, semantic structuring, and lightweight blockchain technology to create a decentralized fact-checking ecosystem. The system lets users create, confirm, and assess claims in a network where trust is built through cryptographically verified interactions.
+
+### Key Concepts
+
+Before diving into usage, it's helpful to understand some key concepts:
+
+- **Claims**: Statements that can be verified, with semantic structure (subject-predicate-object)
+- **Proofs**: Confirmations or disputes of claims by other users
+- **Blockchain Verification**: Immutable record of claims and proofs
+- **Credibility Score**: Trust rating calculated from verification history
+- **Semantic Structure**: Machine-readable format for organizing claims
+
+## Getting Started
+
+### Installing OTRUST CLI
+
+The easiest way to interact with OTRUST is through the command-line interface (CLI):
+
+```bash
+# Install the CLI globally
+npm install -g otrust-cli
+```
+
+### Configuration
+
+After installation, you need to configure the CLI to connect to an OTRUST server:
+
+```bash
+# Configure server URL
+otrust-cli config --server https://api.otrust.example.com
+```
+
+To view your current configuration:
+
+```bash
+otrust-cli config --print
+```
+
+### Creating a Key Pair
+
+To use OTRUST, you need a cryptographic key pair:
+
+```bash
+otrust-cli init
+```
+
+This command generates a new RSA key pair and saves it in the configuration file `~/.otrust/config.json`.
+
+### Registering an Account
+
+Once your key pair is generated, you can register a new account:
+
+```bash
+otrust-cli register
+```
+
+If successful, you'll receive a confirmation and a token for authentication.
+
+### Logging In
+
+If you already have an account, you can log in:
+
+```bash
+otrust-cli login
+```
+
+### Updating Your Profile
+
+To update your profile information:
+
+```bash
+otrust-cli profile --name "Your Name" --email "your.email@example.com"
+```
+
+## Working with Claims
+
+Claims are at the heart of the OTRUST system. They represent statements that can be verified or disputed by other users.
+
+### Creating a Claim
+
+You can create a new claim in interactive mode:
+
+```bash
+otrust-cli claim:create --interactive
+```
+
+This will guide you through the process with prompts for each field.
+
+Alternatively, you can provide all parameters directly:
+
+```bash
+otrust-cli claim:create \
+  --claim "Stockholm is the capital of Sweden" \
+  --evidence "https://en.wikipedia.org/wiki/Stockholm" \
+  --type factual \
+  --subject "Stockholm" \
+  --predicate "is the capital of" \
+  --object "Sweden"
+```
+
+#### Claim Types
+
+When creating a claim, you need to specify its type:
+
+- **factual**: Objective statements that can be definitively verified
+- **opinion**: Subjective statements representing personal viewpoints
+- **analysis**: Interpretations of facts that involve some judgment
+- **reference**: Citations or references to other sources
+
+#### Providing Evidence
+
+Every claim requires evidence. This can be URLs, references, or other supporting information. The more comprehensive your evidence, the more likely your claim is to be confirmed by others.
+
+### Viewing Claims
+
+To view a specific claim:
+
+```bash
+otrust-cli claim:get <claim-id>
+```
+
+This displays detailed information about the claim, including:
+- The claim statement
+- Semantic structure
+- Evidence
+- Proofs (confirmations or disputes)
+- Blockchain verification status
+- Credibility score
+
+### Listing Claims
+
+To list claims with optional filtering:
+
+```bash
+otrust-cli claim:list --type factual --subject "Stockholm" --sort credibility
+```
+
+Available filters include:
+- `--page` and `--limit` for pagination
+- `--type` for claim type
+- `--subject`, `--predicate`, and `--object` for semantic filtering
+- `--user` for filtering by user
+- `--verified` for filtering by verification status
+- `--sort` to sort by newest, oldest, or credibility
+
+### Updating Claims
+
+If you need to update your own claim:
+
+```bash
+otrust-cli claim:update <claim-id> --interactive
+```
+
+Note that updates create a new version of the claim, and the history is preserved.
+
+## Verification and Proofs
+
+The trust in OTRUST comes from users verifying each other's claims through proofs.
+
+### Adding a Proof
+
+You can add a proof interactively:
+
+```bash
+otrust-cli proof:add --interactive
+```
+
+Or provide all parameters directly:
+
+```bash
+otrust-cli proof:add \
+  --claim-id <claim-id> \
+  --action confirmed \
+  --reason "This information is correct based on multiple sources" \
+  --confidence 0.9
+```
+
+The available actions are:
+- `confirmed`: You verify the claim as correct
+- `disputed`: You dispute the claim's accuracy
+- `invalidated`: You assert the claim is completely invalid
+
+### Understanding Confidence Levels
+
+When adding a proof, you can specify a confidence level between 0.0 and 1.0:
+- 1.0: Complete confidence
+- 0.75: High confidence
+- 0.5: Moderate confidence
+- 0.25: Low confidence
+
+### Verifying Blockchain Status
+
+To verify a claim against the blockchain:
+
+```bash
+otrust-cli verify <claim-id>
+```
+
+This checks if the claim has been recorded immutably in the blockchain, providing an additional layer of verification.
+
+## Searching and Querying
+
+OTRUST provides powerful search and semantic query capabilities.
+
+### Basic Search
+
+To search for claims by keyword:
+
+```bash
+otrust-cli search "Stockholm"
+```
+
+### Semantic Queries
+
+For more precise searches using semantic structure:
+
+```bash
+otrust-cli semantic "Stockholm" "is the capital of"
+```
+
+This returns all claims about the subject "Stockholm" with the predicate "is the capital of".
+
+### Advanced Queries
+
+For complex queries, you can use the semantic query endpoint with specific criteria:
+
+```bash
+otrust-cli semantic:query \
+  --subject "Stockholm" \
+  --predicate "is the capital of" \
+  --min-credibility 5.0 \
+  --verified-only \
+  --format graph
+```
+
+## Understanding Trust and Credibility
+
+OTRUST uses several mechanisms to establish trust.
+
+### Credibility Scores
+
+Each claim has a credibility score calculated from:
+- Number of confirmations vs. disputes
+- Reputation of confirming/disputing users
+- Blockchain verification status
+- Quality of evidence
+
+Scores range from 0 to 10, with higher scores indicating greater credibility.
+
+### User Reputation
+
+Users build reputation through their interactions:
+- Creating claims that get confirmed
+- Accurately confirming or disputing others' claims
+- Providing quality evidence
+
+To view a user's reputation:
+
+```bash
+otrust-cli user:info <public-key>
+```
+
+### Consensus vs. Conflict
+
+When multiple claims exist about the same subject-predicate pair, OTRUST will indicate:
+- Whether consensus exists
+- Conflicting values
+- Credibility scores for each value
+
+## System Information
+
+### Viewing Blockchain Statistics
+
+To understand the state of the blockchain:
+
+```bash
+otrust-cli blockchain:stats
+```
+
+This shows information about blocks, transactions, and the overall blockchain health.
+
+### System Statistics
+
+For overall system statistics:
+
+```bash
+otrust-cli stats
+```
+
+This provides information about total claims, users, verification rates, and top contributors.
+
+### Health Check
+
+To check the health of the OTRUST server:
+
+```bash
+otrust-cli health
+```
+
+## Best Practices
+
+### Creating Effective Claims
+
+1. **Be specific and precise**: Make your claim clear and unambiguous
+2. **Provide strong evidence**: Include multiple reliable sources
+3. **Use proper semantic structure**: Ensure your subject-predicate-object structure makes sense
+4. **Choose the right claim type**: Use factual for objective statements, opinion for subjective ones
+
+### Responsible Verification
+
+1. **Verify claims carefully**: Check the evidence before confirming
+2. **Dispute with evidence**: When disputing, explain why and provide counter-evidence
+3. **Use appropriate confidence levels**: Be honest about your level of certainty
+4. **Consider your reputation**: Your verification actions affect your credibility
+
+### Security Tips
+
+1. **Protect your private key**: Never share it with anyone
+2. **Use a secure password manager**: Store configuration securely
+3. **Regularly update**: Keep the CLI and other tools updated
+4. **Verify server authenticity**: Ensure you're connecting to the legitimate OTRUST server
+
+## Troubleshooting
+
+### Common Issues
+
+1. **Authentication problems**:
+   - Ensure your key pair is correctly generated
+   - Check that you're properly registered and logged in
+   - Verify that your token hasn't expired
+
+2. **Claim creation issues**:
+   - Ensure all required fields are provided
+   - Check that evidence URLs are valid
+   - Verify that your claim follows semantic structure rules
+
+3. **Proof addition failures**:
+   - You cannot confirm your own claims
+   - You can only add one proof per claim
+   - Ensure the claim ID is correct
+
+4. **Connection problems**:
+   - Verify the server URL in your configuration
+   - Check your internet connection
+   - Ensure the server is running and accessible
+
+### Getting Help
+
+If you encounter issues:
+
+1. Run commands with `--help` for more information:
+   ```bash
+   otrust-cli --help
+   otrust-cli claim:create --help
+   ```
+
+2. Check the official documentation:
+   - [OTRUST Documentation](https://github.com/otrust-eu/otrust-docs)
+
+3. Report issues on GitHub:
+   - [OTRUST CLI Issues](https://github.com/otrust-eu/otrust-cli/issues)
+   - [OTRUST Server Issues](https://github.com/otrust-eu/otrust-server/issues)
+
+## Advanced Usage
+
+### Exporting Data
+
+To export claims in CSV format:
+
+```bash
+otrust-cli claim:list --csv > claims.csv
+```
+
+### Using as a Library
+
+The OTRUST CLI can also be used as a JavaScript library in your applications:
+
+```javascript
+const OtrustCLI = require('otrust-cli');
+
+async function main() {
+  const otrust = new OtrustCLI({
+    server: 'https://api.otrust.example.com'
+  });
+  
+  // Initialize and login
+  await otrust.init();
+  await otrust.login();
+  
+  // Create a claim
+  const claim = await otrust.createClaim({
+    claim: 'Stockholm is the capital of Sweden',
+    evidence: ['https://en.wikipedia.org/wiki/Stockholm'],
+    type: 'factual',
+    semantic: {
+      subject: 'Stockholm',
+      predicate: 'is the capital of',
+      object: 'Sweden'
+    }
+  });
+  
+  console.log('Claim created with ID:', claim.id);
+}
+
+main().catch(console.error);
+```
+
+### Integration with Other Tools
+
+OTRUST can be integrated with various tools and platforms:
+
+- Content management systems (WordPress, Drupal)
+- Social media platforms
+- Fact-checking websites
+- News aggregators
+- Educational platforms
+
+For integration examples, see the [Integration Guide](OTRUST-Integration-Guide.md).
+
+## Conclusion
+
+OTRUST provides a powerful system for distributed verification of claims. By participating responsibly and understanding the mechanisms of trust, you can contribute to a more reliable information ecosystem.
+
+For more detailed information, refer to the following documentation:
+
+- [OTRUST API Reference](OTRUST-API-Reference.md)
+- [OTRUST CLI Guide](OTRUST-CLI-Guide.md)
+- [OTRUST Deployment Guide](OTRUST-Deployment-Guide.md)
