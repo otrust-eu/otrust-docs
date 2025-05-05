@@ -1,0 +1,468 @@
+# OTRUST Integration Guide
+
+This guide explains how to integrate the OTRUST ecosystem components (server, CLI, and other potential clients) to create a complete distributed truth verification system.
+
+## Components Overview
+
+The OTRUST ecosystem consists of three primary components that work together:
+
+1. **OTRUST Server** - The backend that manages claims, proofs, users, and the blockchain
+2. **OTRUST CLI** - A command-line interface for interacting with the server
+3. **Custom Clients** - Any additional client applications you might develop
+
+This guide focuses on how these components interact and how to integrate them effectively.
+
+## System Architecture
+
+```
+┌─────────────────┐     ┌─────────────────┐     ┌─────────────────┐
+│  OTRUST CLI     │     │  Custom Clients │     │  Other Systems  │
+│                 │     │                 │     │                 │
+└────────┬────────┘     └────────┬────────┘     └────────┬────────┘
+         │                       │                       │
+         │                       │                       │
+         │                       ▼                       │
+         │              ┌─────────────────┐              │
+         └─────────────►│  OTRUST Server  │◄─────────────┘
+                        │                 │
+                        └────────┬────────┘
+                                 │
+                        ┌────────┴────────┐
+                        │                 │
+                        │   Database &    │
+                        │   Blockchain    │
+                        │                 │
+                        └─────────────────┘
+```
+
+## Connection Flow
+
+All components connect to the OTRUST server through its REST API. The typical connection flow is:
+
+1. Component obtains a public/private key pair
+2. Component registers or authenticates with the server using the key pair
+3. Server returns a JWT token
+4. Component uses the JWT token for subsequent API calls
+
+## Integration Steps
+
+### 1. Setting Up the Server
+
+First, deploy the OTRUST server following the [Deployment Guide](OTRUST-Deployment-Guide.md). Make note of:
+
+- The server URL (e.g., `https://api.yourdomain.com`)
+- Any configuration settings that clients will need to be aware of
+
+### 2. Connecting the CLI
+
+The OTRUST CLI needs to be configured to connect to your server:
+
+```bash
+# Install the CLI
+npm install -g otrust-cli
+
+# Configure the server URL
+otrust-cli config --server https://api.yourdomain.com
+
+# Generate key pair
+otrust-cli init
+
+# Register with the server
+otrust-cli register
+```
+
+### 3. Building Custom Clients
+
+To build your own client applications that integrate with OTRUST:
+
+#### Using the CLI as a Library
+
+The OTRUST CLI can be used as a JavaScript library:
+
+```javascript
+const OtrustCLI = require('otrust-cli');
+
+const otrust = new OtrustCLI({
+  server: 'https://api.yourdomain.com'
+});
+
+async function createClaim() {
+  // Initialize and authenticate
+  await otrust.init();
+  await otrust.register(); // or login()
+  
+  // Create a claim
+  const claim = await otrust.createClaim({
+    claim: 'Stockholm is the capital of Sweden',
+    evidence: ['https://en.wikipedia.org/wiki/Stockholm'],
+    type: 'factual',
+    semantic: {
+      subject: 'Stockholm',
+      predicate: 'is the capital of',
+      object: 'Sweden'
+    }
+  });
+  
+  console.log('Claim created:', claim.id);
+}
+
+createClaim().catch(console.error);
+```
+
+#### Direct API Integration
+
+For other programming languages or environments, you can integrate directly with the REST API:
+
+1. Generate a cryptographic key pair
+2. Register/authenticate with the server
+3. Store the JWT token
+4. Use the token for API calls
+
+Example in Python:
+
+```python
+import requests
+import json
+import cryptography.hazmat.primitives.asymmetric.rsa as rsa
+from cryptography.hazmat.primitives import serialization, hashes
+from cryptography.hazmat.primitives.asymmetric import padding
+
+# Generate key pair
+private_key = rsa.generate_private_key(
+    public_exponent=65537,
+    key_size=2048
+)
+public_key = private_key.public_key()
+
+# Serialize keys
+public_pem = public_key.public_bytes(
+    encoding=serialization.Encoding.PEM,
+    format=serialization.PublicFormat.SubjectPublicKeyInfo
+)
+
+# Register with the server
+timestamp = int(time.time() * 1000)
+payload = json.dumps({
+    "action": "register",
+    "publicKey": public_pem.decode(),
+    "timestamp": timestamp
+})
+
+# Sign the payload
+signature = private_key.sign(
+    payload.encode(),
+    padding.PKCS1v15(),
+    hashes.SHA256()
+)
+signature_hex = signature.hex()
+
+# Send registration request
+response = requests.post(
+    'https://api.yourdomain.com/api/auth/register',
+    json={
+        "publicKey": public_pem.decode(),
+        "signature": signature_hex,
+        "timestamp": timestamp
+    }
+)
+
+# Store the token
+token = response.json()['token']
+
+# Use token for future requests
+headers = {
+    'Authorization': f'Bearer {token}'
+}
+
+# Create a claim
+claim_data = {
+    "claim": "Stockholm is the capital of Sweden",
+    "evidence": ["https://en.wikipedia.org/wiki/Stockholm"],
+    "type": "factual",
+    "publicKey": public_pem.decode(),
+    "timestamp": int(time.time() * 1000),
+    "semantic": {
+        "subject": "Stockholm",
+        "predicate": "is the capital of",
+        "object": "Sweden"
+    }
+}
+
+# Sign the claim
+claim_payload = json.dumps({
+    "claim": claim_data["claim"],
+    "evidence": claim_data["evidence"],
+    "publicKey": claim_data["publicKey"],
+    "type": claim_data["type"],
+    "timestamp": claim_data["timestamp"],
+    "semantic": claim_data["semantic"]
+})
+
+claim_data["signature"] = private_key.sign(
+    claim_payload.encode(),
+    padding.PKCS1v15(),
+    hashes.SHA256()
+).hex()
+
+# Submit the claim
+response = requests.post(
+    'https://api.yourdomain.com/api/claim',
+    headers=headers,
+    json=claim_data
+)
+
+print(f"Claim created with ID: {response.json()['id']}")
+```
+
+## Web Integration
+
+### Implementing a Web Frontend
+
+For web applications, you can create a frontend that interacts with the OTRUST server:
+
+1. Implement client-side key generation and storage (using Web Crypto API)
+2. Manage authentication and token storage
+3. Create forms for creating claims and proofs
+4. Display claim information and verification status
+
+Example using JavaScript fetch API:
+
+```javascript
+// Generate keys using Web Crypto API
+async function generateKeyPair() {
+  const keyPair = await window.crypto.subtle.generateKey(
+    {
+      name: "RSASSA-PKCS1-v1_5",
+      modulusLength: 2048,
+      publicExponent: new Uint8Array([0x01, 0x00, 0x01]),
+      hash: {name: "SHA-256"},
+    },
+    true,
+    ["sign", "verify"]
+  );
+  
+  // Export keys
+  const publicKeyExported = await window.crypto.subtle.exportKey(
+    "spki",
+    keyPair.publicKey
+  );
+  
+  // Convert to PEM format
+  const publicKeyBase64 = btoa(String.fromCharCode(...new Uint8Array(publicKeyExported)));
+  const publicKeyPEM = `-----BEGIN PUBLIC KEY-----\n${publicKeyBase64}\n-----END PUBLIC KEY-----`;
+  
+  return {
+    keyPair,
+    publicKeyPEM
+  };
+}
+
+// Sign data with private key
+async function signData(data, privateKey) {
+  const encoder = new TextEncoder();
+  const dataBuffer = encoder.encode(data);
+  
+  const signature = await window.crypto.subtle.sign(
+    {
+      name: "RSASSA-PKCS1-v1_5",
+      hash: {name: "SHA-256"},
+    },
+    privateKey,
+    dataBuffer
+  );
+  
+  return Array.from(new Uint8Array(signature))
+    .map(b => b.toString(16).padStart(2, '0'))
+    .join('');
+}
+
+// Register with OTRUST server
+async function register() {
+  const { keyPair, publicKeyPEM } = await generateKeyPair();
+  
+  const timestamp = Date.now();
+  const payload = JSON.stringify({
+    action: "register",
+    publicKey: publicKeyPEM,
+    timestamp
+  });
+  
+  const signature = await signData(payload, keyPair.privateKey);
+  
+  const response = await fetch('https://api.yourdomain.com/api/auth/register', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify({
+      publicKey: publicKeyPEM,
+      signature,
+      timestamp
+    })
+  });
+  
+  const data = await response.json();
+  
+  // Store token and keys securely
+  localStorage.setItem('otrust-token', data.token);
+  sessionStorage.setItem('otrust-keypair', JSON.stringify(keyPair));
+  
+  return data;
+}
+```
+
+## Webhooks and Notifications
+
+To maintain real-time updates across integrated components:
+
+1. Implement a webhook listener in your client application
+2. Register your webhook URL with the OTRUST server (if supported)
+3. Process incoming webhook notifications for:
+   - New claims
+   - New proofs
+   - Blockchain verifications
+   - Status changes
+
+## Federation Between OTRUST Nodes
+
+For advanced deployments with multiple OTRUST nodes:
+
+1. Configure the trusted node IDs and public keys in each server's `.env` file
+2. Set up periodic synchronization between nodes
+3. Ensure all clients can connect to any node in the federation
+
+Example node configuration:
+
+```
+# Federation Settings
+TRUSTED_NODES={"node1":"-----BEGIN PUBLIC KEY-----\nMIIBIjANBgkqhkiG9w0BAQEFAA...","node2":"-----BEGIN PUBLIC KEY-----\nMIIBIjANBgkqhkiG9w0BAQEFAA..."}
+```
+
+## Security Considerations
+
+When integrating OTRUST components:
+
+1. **Key Security**
+   - Store private keys securely
+   - Consider using hardware security modules (HSMs) for production
+   - Never expose private keys in client-side code
+
+2. **Token Management**
+   - Store JWT tokens securely
+   - Implement token refresh mechanisms
+   - Handle token expiration gracefully
+
+3. **Transport Security**
+   - Always use HTTPS for API communication
+   - Validate SSL certificates
+   - Implement certificate pinning for mobile clients
+
+4. **Input Validation**
+   - Validate all user inputs before submission
+   - Sanitize inputs to prevent injection attacks
+   - Validate claim structures and semantic formats
+
+## Testing Integration
+
+To verify your integration:
+
+1. **Create a test claim**
+   ```bash
+   otrust-cli claim:create --claim "Test claim" --evidence "https://example.com" --type "factual" --subject "Test" --predicate "is" --object "working"
+   ```
+
+2. **Verify it exists in your client application**
+
+3. **Add a proof from another client**
+   ```bash
+   otrust-cli proof:add --claim-id <id> --action confirmed --reason "Integration test"
+   ```
+
+4. **Check blockchain verification**
+   ```bash
+   otrust-cli verify <id>
+   ```
+
+## Troubleshooting Integration Issues
+
+Common integration issues and solutions:
+
+1. **Authentication Failures**
+   - Verify key pair generation is working correctly
+   - Ensure payload signing follows the correct format
+   - Check that timestamps are in milliseconds since epoch
+
+2. **Signature Verification Errors**
+   - Ensure the data being signed matches the expected format
+   - Verify the signature algorithm matches the server's expectations
+   - Check that the key format (PEM) is correctly formatted
+
+3. **API Connection Issues**
+   - Verify the server URL is correct
+   - Check network connectivity and firewall settings
+   - Ensure SSL/TLS certificates are valid
+
+4. **Claims Not Appearing**
+   - Verify the claim was successfully created (check the server logs)
+   - Ensure your query parameters are correct
+   - Check pagination settings if using listing endpoints
+
+## Example Integration Scenarios
+
+### Integration with Content Management Systems
+
+```javascript
+// WordPress plugin example (simplified)
+function otrust_verify_content($content) {
+  // Extract claim ID from content
+  $claim_id = get_post_meta(get_the_ID(), 'otrust_claim_id', true);
+  
+  if (!empty($claim_id)) {
+    // Verify with OTRUST server
+    $response = wp_remote_get(
+      "https://api.yourdomain.com/api/claim/{$claim_id}/verify",
+      array(
+        'headers' => array(
+          'Authorization' => 'Bearer ' . get_option('otrust_api_token')
+        )
+      )
+    );
+    
+    $verification = json_decode(wp_remote_retrieve_body($response), true);
+    
+    if ($verification['verified']) {
+      // Add verification badge to content
+      $content = '<div class="otrust-verified">Verified on OTRUST</div>' . $content;
+    }
+  }
+  
+  return $content;
+}
+add_filter('the_content', 'otrust_verify_content');
+```
+
+### Integration with Mobile Applications
+
+For mobile applications, consider implementing:
+
+1. Key generation and storage using platform-specific secure storage:
+   - iOS Keychain
+   - Android Keystore
+
+2. Offline capability with synchronization when online:
+   - Queue claims for submission when offline
+   - Sync when connection is restored
+
+3. Push notifications for claim updates:
+   - Register device token with OTRUST server
+   - Process incoming notifications
+
+## Conclusion
+
+By following this integration guide, you can successfully connect the OTRUST server with the CLI and any custom clients you develop. This creates a comprehensive ecosystem for distributed truth verification.
+
+For more detailed information on specific components, refer to the following documentation:
+
+- [OTRUST API Reference](OTRUST-API-Reference.md)
+- [OTRUST CLI Guide](OTRUST-CLI-Guide.md)
+- [OTRUST Deployment Guide](OTRUST-Deployment-Guide.md)
