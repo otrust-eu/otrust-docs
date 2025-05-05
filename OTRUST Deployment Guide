@@ -1,0 +1,641 @@
+# OTRUST Deployment Guide
+
+This comprehensive guide covers the deployment options for OTRUST, including development, testing, and production environments. Follow these step-by-step instructions to get your OTRUST instance up and running.
+
+## Table of Contents
+
+- [Development Setup](#development-setup)
+- [Docker Deployment](#docker-deployment)
+- [Production Deployment](#production-deployment)
+- [Environment Configuration](#environment-configuration)
+- [Security Best Practices](#security-best-practices)
+- [Monitoring and Maintenance](#monitoring-and-maintenance)
+- [Troubleshooting](#troubleshooting)
+
+## Development Setup
+
+### Prerequisites
+
+Before setting up OTRUST for development, ensure you have:
+
+- Node.js (v14 or higher)
+- MongoDB (v4.4 or higher)
+- Git
+- npm or yarn
+
+### Step 1: Clone the Repository
+
+```bash
+git clone https://github.com/otrust-eu/otrust-server.git
+cd otrust-server
+```
+
+### Step 2: Install Dependencies
+
+```bash
+npm install
+# Or if using yarn
+yarn install
+```
+
+### Step 3: Configure MongoDB
+
+For development, you can run MongoDB locally:
+
+```bash
+# Install MongoDB if not already installed
+# Ubuntu/Debian
+sudo apt-get install -y mongodb
+
+# macOS (using Homebrew)
+brew install mongodb-community
+
+# Start MongoDB service
+# Ubuntu/Debian
+sudo systemctl start mongod
+
+# macOS
+brew services start mongodb-community
+```
+
+### Step 4: Set Up Environment Variables
+
+Create a `.env` file by copying the example:
+
+```bash
+cp .env.example .env
+```
+
+Edit the `.env` file with your development settings:
+
+```
+# Server Settings
+PORT=3000
+NODE_ENV=development
+HOST=localhost
+
+# MongoDB Configuration
+MONGODB_URI=mongodb://localhost:27017/otrust
+
+# Blockchain Settings
+BLOCKCHAIN_PATH=./blockchain
+BLOCKCHAIN_DIFFICULTY=1  # Lower difficulty for development
+BLOCKCHAIN_BLOCK_SIZE=2  # Smaller blocks for faster development testing
+AUTO_MINE=true
+
+# Security Settings (use strong values in production)
+JWT_SECRET=dev-secret-key
+JWT_EXPIRES=30d
+```
+
+### Step 5: Start the Development Server
+
+```bash
+# Start with nodemon for automatic reloading
+npm run dev
+
+# Or start normally
+npm start
+```
+
+Your development server should now be running at http://localhost:3000.
+
+### Step 6: Verify the Installation
+
+Test that the server is running correctly:
+
+```bash
+curl http://localhost:3000/health
+```
+
+You should see a response with server status information.
+
+## Docker Deployment
+
+Docker provides a simplified way to deploy OTRUST with all dependencies pre-configured. This is especially useful for testing and staging environments.
+
+### Prerequisites
+
+- Docker
+- Docker Compose
+
+### Step 1: Clone the Repository
+
+```bash
+git clone https://github.com/otrust-eu/otrust-server.git
+cd otrust-server
+```
+
+### Step 2: Configure Environment
+
+Create a `.env` file with your configuration:
+
+```bash
+cp .env.example .env
+```
+
+For Docker deployment, you don't need to modify the MongoDB connection settings, as they're automatically configured in the Docker Compose file. However, you should set strong passwords and other environment-specific settings.
+
+### Step 3: Start the Docker Containers
+
+```bash
+docker-compose up -d
+```
+
+This command:
+- Builds the OTRUST container from the Dockerfile
+- Pulls the MongoDB image
+- Creates and starts both containers
+- Sets up the network between them
+- Creates persistent volumes for data
+
+### Step 4: Monitor the Containers
+
+```bash
+# Check container status
+docker-compose ps
+
+# View logs
+docker-compose logs -f
+
+# View only OTRUST logs
+docker-compose logs -f otrust-api
+```
+
+### Step 5: Verify the Deployment
+
+The OTRUST API should be accessible at http://localhost:3000 (or the port you configured).
+
+```bash
+curl http://localhost:3000/health
+```
+
+### Docker Compose File Explained
+
+The `docker-compose.yml` file included with OTRUST sets up:
+
+1. **otrust-api container**:
+   - Built from the Dockerfile in the project
+   - Exposes the API port
+   - Connects to the MongoDB container
+   - Mounts volumes for blockchain data and logs
+
+2. **otrust-mongodb container**:
+   - Uses the official MongoDB image
+   - Creates a persistent volume for database data
+   - Configures authentication
+   - Sets up the initial database
+
+### Stopping and Restarting
+
+```bash
+# Stop containers
+docker-compose down
+
+# Stop containers and remove volumes (caution: this will delete all data)
+docker-compose down -v
+
+# Restart containers
+docker-compose up -d
+```
+
+## Production Deployment
+
+For production environments, additional steps are needed to ensure security, reliability, and performance.
+
+### Prerequisites
+
+- VPS or dedicated server (recommended: 2+ CPU cores, 4GB+ RAM)
+- Domain name with SSL certificate
+- Node.js (v14 or higher)
+- MongoDB (v4.4 or higher) or MongoDB Atlas
+- Nginx or similar reverse proxy
+
+### Step 1: Prepare the Server
+
+Update and install necessary packages:
+
+```bash
+# Update system packages
+sudo apt update && sudo apt upgrade -y
+
+# Install Node.js (if not already installed)
+curl -fsSL https://deb.nodesource.com/setup_16.x | sudo -E bash -
+sudo apt-get install -y nodejs
+
+# Install build tools
+sudo apt-get install -y build-essential
+
+# Install Nginx
+sudo apt-get install -y nginx
+```
+
+### Step 2: Set Up MongoDB
+
+For production, consider using:
+- MongoDB Atlas (cloud-hosted, managed solution)
+- Self-hosted MongoDB with replica set for high availability
+
+If self-hosting, install MongoDB with proper security:
+
+```bash
+# Import MongoDB public GPG key
+wget -qO - https://www.mongodb.org/static/pgp/server-4.4.asc | sudo apt-key add -
+
+# Create list file for MongoDB
+echo "deb [ arch=amd64,arm64 ] https://repo.mongodb.org/apt/ubuntu focal/mongodb-org/4.4 multiverse" | sudo tee /etc/apt/sources.list.d/mongodb-org-4.4.list
+
+# Reload package database
+sudo apt-get update
+
+# Install MongoDB packages
+sudo apt-get install -y mongodb-org
+
+# Enable authentication in MongoDB config
+sudo nano /etc/mongod.conf
+# Add the following lines:
+# security:
+#   authorization: enabled
+
+# Start MongoDB
+sudo systemctl start mongod
+sudo systemctl enable mongod
+
+# Create admin user and database
+mongosh admin --eval "db.createUser({user: 'admin', pwd: 'secure_password', roles: ['root']})"
+mongosh admin -u admin -p secure_password --eval "db.createDatabase('otrust')"
+mongosh otrust -u admin -p secure_password --eval "db.createUser({user: 'otrust_user', pwd: 'otrust_password', roles: ['readWrite']})"
+```
+
+### Step 3: Clone and Configure OTRUST
+
+```bash
+# Create directory for application
+sudo mkdir -p /opt/otrust
+sudo chown -R $USER:$USER /opt/otrust
+
+# Clone repository
+git clone https://github.com/otrust-eu/otrust-server.git /opt/otrust
+cd /opt/otrust
+
+# Install dependencies
+npm ci --only=production
+
+# Create environment file
+cp .env.example .env
+nano .env
+```
+
+Configure your `.env` file with production settings:
+
+```
+# Server Settings
+PORT=3000
+NODE_ENV=production
+HOST=localhost
+
+# MongoDB Configuration
+MONGODB_URI=mongodb://otrust_user:otrust_password@localhost:27017/otrust
+MONGODB_AUTH_SOURCE=admin
+
+# Blockchain Settings
+BLOCKCHAIN_PATH=/opt/otrust/blockchain
+BLOCKCHAIN_DIFFICULTY=2
+BLOCKCHAIN_BLOCK_SIZE=10
+AUTO_MINE=true
+MINING_INTERVAL=300000
+
+# Security Settings
+JWT_SECRET=your_very_strong_random_secret
+JWT_EXPIRES=7d
+RATE_LIMIT_WINDOW=900000
+RATE_LIMIT_MAX=100
+CORS_ORIGIN=https://yourdomain.com
+```
+
+### Step 4: Set Up Process Management with PM2
+
+```bash
+# Install PM2 globally
+sudo npm install -g pm2
+
+# Start OTRUST with PM2
+cd /opt/otrust
+pm2 start server.js --name otrust
+
+# Set PM2 to start on boot
+pm2 startup
+# Follow the instructions provided by the command
+pm2 save
+```
+
+### Step 5: Configure Nginx as Reverse Proxy
+
+```bash
+# Create a Nginx configuration file
+sudo nano /etc/nginx/sites-available/otrust
+
+# Add the following configuration
+```
+
+```nginx
+server {
+    listen 80;
+    server_name api.yourdomain.com;
+
+    # Redirect all HTTP traffic to HTTPS
+    location / {
+        return 301 https://$host$request_uri;
+    }
+}
+
+server {
+    listen 443 ssl;
+    server_name api.yourdomain.com;
+
+    # SSL configuration
+    ssl_certificate /etc/letsencrypt/live/api.yourdomain.com/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/api.yourdomain.com/privkey.pem;
+    ssl_protocols TLSv1.2 TLSv1.3;
+    ssl_prefer_server_ciphers on;
+    ssl_ciphers ECDHE-RSA-AES256-GCM-SHA512:DHE-RSA-AES256-GCM-SHA512:ECDHE-RSA-AES256-GCM-SHA384:DHE-RSA-AES256-GCM-SHA384;
+    ssl_session_timeout 1d;
+    ssl_session_cache shared:SSL:10m;
+    ssl_stapling on;
+    ssl_stapling_verify on;
+
+    # Security headers
+    add_header Strict-Transport-Security "max-age=63072000; includeSubDomains; preload";
+    add_header X-Content-Type-Options nosniff;
+    add_header X-Frame-Options DENY;
+    add_header X-XSS-Protection "1; mode=block";
+
+    # Proxy settings
+    location / {
+        proxy_pass http://localhost:3000;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection 'upgrade';
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_cache_bypass $http_upgrade;
+    }
+
+    # Larger body size for API
+    client_max_body_size 5M;
+}
+```
+
+Enable the configuration:
+
+```bash
+sudo ln -s /etc/nginx/sites-available/otrust /etc/nginx/sites-enabled/
+sudo nginx -t  # Test configuration
+sudo systemctl restart nginx
+```
+
+### Step 6: Set Up SSL Certificate
+
+```bash
+# Install Certbot
+sudo apt-get install -y certbot python3-certbot-nginx
+
+# Obtain SSL certificate
+sudo certbot --nginx -d api.yourdomain.com
+
+# Verify auto-renewal
+sudo certbot renew --dry-run
+```
+
+### Step 7: Configure Firewall
+
+```bash
+# Allow SSH, HTTP, and HTTPS
+sudo ufw allow ssh
+sudo ufw allow http
+sudo ufw allow https
+
+# Enable firewall
+sudo ufw enable
+```
+
+## Environment Configuration
+
+The OTRUST server is configured through environment variables, which can be set in the `.env` file or directly in the environment.
+
+### Critical Environment Variables
+
+| Variable | Description | Default | Recommended Production Value |
+|----------|-------------|---------|------------------------------|
+| `NODE_ENV` | Environment mode | `development` | `production` |
+| `PORT` | API server port | `3000` | `3000` (behind reverse proxy) |
+| `MONGODB_URI` | MongoDB connection string | `mongodb://localhost:27017/otrust` | Use connection string with auth |
+| `JWT_SECRET` | Secret for JWT tokens | N/A | Strong random string (32+ chars) |
+| `BLOCKCHAIN_PATH` | Path to blockchain data | `./blockchain` | `/path/to/persistent/storage` |
+| `LOG_LEVEL` | Logging verbosity | `info` | `info` or `warn` |
+| `CORS_ORIGIN` | Allowed CORS origins | `*` | Your specific frontend domains |
+| `RATE_LIMIT_MAX` | Rate limiting | `100` | Adjust based on expected traffic |
+
+### Sample Production .env File
+
+```
+# Server Settings
+NODE_ENV=production
+PORT=3000
+HOST=localhost
+
+# MongoDB Configuration
+MONGODB_URI=mongodb://user:password@localhost:27017/otrust
+MONGODB_AUTH_SOURCE=admin
+
+# Blockchain Settings
+BLOCKCHAIN_PATH=/data/blockchain
+BLOCKCHAIN_DIFFICULTY=2
+BLOCKCHAIN_BLOCK_SIZE=10
+AUTO_MINE=true
+MINING_INTERVAL=300000
+ARCHIVE_BLOCKCHAIN=true
+
+# Security Settings
+JWT_SECRET=your_very_strong_random_string_here
+JWT_EXPIRES=7d
+RATE_LIMIT_WINDOW=900000
+RATE_LIMIT_MAX=100
+CORS_ORIGIN=https://yourdomain.com,https://api.yourdomain.com
+REQUEST_SIZE_LIMIT=1mb
+
+# Logging Settings
+LOG_LEVEL=info
+LOG_DIR=/var/log/otrust
+
+# Admin API Key
+ADMIN_API_KEY=another_very_strong_random_string
+```
+
+## Security Best Practices
+
+### API Security Recommendations
+
+1. **Use HTTPS Only**
+   - Always serve the API over HTTPS
+   - Configure HSTS headers
+   - Use strong SSL ciphers
+
+2. **Authentication**
+   - Implement proper JWT token validation
+   - Use short expiration times for tokens
+   - Implement refresh token rotation
+
+3. **Rate Limiting**
+   - Configure appropriate rate limits based on your usage patterns
+   - Implement IP-based and user-based rate limiting
+
+4. **Input Validation**
+   - Validate all inputs on the server side
+   - Use schema validation for incoming data
+   - Sanitize database queries
+
+5. **Monitoring**
+   - Log all authentication attempts
+   - Set up alerts for suspicious activities
+   - Regularly audit API usage
+
+### MongoDB Security
+
+1. **Authentication**
+   - Always enable authentication
+   - Use complex passwords
+   - Create users with limited permissions
+
+2. **Network Security**
+   - Bind MongoDB to localhost only if on same server
+   - Use VPN or private network for remote access
+   - Configure firewall rules
+
+3. **Encryption**
+   - Enable TLS/SSL for MongoDB connections
+   - Encrypt sensitive data at rest
+
+## Monitoring and Maintenance
+
+### Logging
+
+OTRUST uses Winston for logging. Logs are stored in the directory specified by the `LOG_DIR` environment variable.
+
+```bash
+# View recent logs
+tail -f /var/log/otrust/combined.log
+
+# View error logs
+tail -f /var/log/otrust/error.log
+```
+
+### Monitoring with PM2
+
+If using PM2 for process management:
+
+```bash
+# View process status
+pm2 status
+
+# Monitor logs and metrics
+pm2 monit
+
+# View logs
+pm2 logs otrust
+```
+
+### Regular Maintenance Tasks
+
+1. **Database Backup**
+   - Set up daily MongoDB backups
+   - Verify backup integrity regularly
+   - Test restoration process
+
+2. **Log Rotation**
+   - Configure log rotation to prevent disk space issues
+   - Archive older logs
+
+3. **Updates**
+   - Regularly update OTRUST to the latest version
+   - Keep Node.js and MongoDB updated
+   - Apply security patches promptly
+
+4. **Performance Monitoring**
+   - Monitor CPU, memory, and disk usage
+   - Check API response times
+   - Analyze MongoDB query performance
+
+## Troubleshooting
+
+### Common Issues and Solutions
+
+1. **API Not Starting**
+   - Check error logs: `tail -f /var/log/otrust/error.log`
+   - Verify MongoDB connection: `mongo otrust --eval "db.stats()"`
+   - Check if port is already in use: `netstat -tuln | grep 3000`
+
+2. **Slow API Responses**
+   - Check MongoDB performance: `db.currentOp()`
+   - Review API logs for slow endpoints
+   - Check system resources: `htop`
+
+3. **Authentication Issues**
+   - Verify JWT_SECRET is set correctly
+   - Check if token is expired
+   - Ensure user exists in database
+
+4. **Blockchain Sync Issues**
+   - Check blockchain logs
+   - Verify disk space availability
+   - Consider resetting blockchain in development: delete blockchain directory
+
+### Getting Support
+
+If you encounter issues not covered in this guide:
+
+1. Check the [GitHub Issues](https://github.com/otrust-eu/otrust-server/issues) for similar problems
+2. Search the [Documentation](https://docs.otrust.eu) for solutions
+3. Open a new issue with detailed information about your problem
+
+## Scaling OTRUST
+
+### Horizontal Scaling
+
+For high-traffic deployments, consider:
+
+1. **Load Balancing**
+   - Deploy multiple OTRUST instances
+   - Use Nginx or HAProxy for load balancing
+   - Implement sticky sessions if needed
+
+2. **Database Scaling**
+   - Use MongoDB replica sets for redundancy
+   - Consider sharding for very large datasets
+   - Optimize indexes for common queries
+
+3. **Caching**
+   - Implement Redis for caching frequent queries
+   - Consider caching blockchain verification results
+
+### Vertical Scaling
+
+To improve performance on a single server:
+
+1. **Resource Allocation**
+   - Increase server CPU and RAM
+   - Use SSD storage for blockchain and database
+   - Optimize Node.js memory limits
+
+2. **Performance Tuning**
+   - Tune MongoDB settings
+   - Adjust blockchain parameters
+   - Optimize Node.js garbage collection
+
+## Conclusion
+
+This deployment guide covers the basics of setting up OTRUST in different environments. As your usage grows, you may need to adjust configurations and scaling strategies to meet your specific needs.
+
+For more detailed information, refer to the [official documentation](https://docs.otrust.eu) or reach out to the OTRUST community.
