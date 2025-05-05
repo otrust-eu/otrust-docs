@@ -1,0 +1,310 @@
+# OTRUST CLI Guide
+
+The OTRUST Command Line Interface (CLI) provides a powerful tool for interacting with the OTRUST distributed truth protocol directly from the command line. This guide explains how to install, configure, and use the CLI for common tasks.
+
+## Installation
+
+### Prerequisites
+
+Before installing OTRUST CLI, make sure you have:
+
+- Node.js (version 14 or later)
+- npm (Node Package Manager)
+- Access to an OTRUST server
+
+You can check your Node.js and npm versions with:
+
+```bash
+node --version
+npm --version
+```
+
+### Installation Options
+
+#### Option 1: Global Installation via npm
+
+The easiest way to install OTRUST CLI is via npm:
+
+```bash
+npm install -g otrust-cli
+```
+
+After installation, you can run the `otrust-cli` command from any directory.
+
+#### Option 2: Installation from Source
+
+To install from source:
+
+1. Clone the GitHub repository:
+
+```bash
+git clone https://github.com/otrust-eu/otrust-cli.git
+```
+
+2. Navigate to the cloned directory:
+
+```bash
+cd otrust-cli
+```
+
+3. Install dependencies:
+
+```bash
+npm install
+```
+
+4. Link the command globally:
+
+```bash
+npm link
+```
+
+## Configuration
+
+After installation, you need to configure the CLI to connect to an OTRUST server:
+
+```bash
+otrust-cli config --server https://api.otrust.example.com
+```
+
+To view your current configuration:
+
+```bash
+otrust-cli config --print
+```
+
+## Authentication
+
+### Generating a Key Pair
+
+Before using OTRUST CLI, you need a cryptographic key pair:
+
+```bash
+otrust-cli init
+```
+
+This command generates a new RSA key pair and saves it in the configuration file `~/.otrust/config.json`.
+
+### Registering a New Account
+
+Once your key pair is generated, you can register a new account:
+
+```bash
+otrust-cli register
+```
+
+### Logging In
+
+If you already have an account, you can log in:
+
+```bash
+otrust-cli login
+```
+
+### Updating Your Profile
+
+To update your profile information:
+
+```bash
+otrust-cli profile --name "Your Name" --email "your.email@example.com"
+```
+
+## Working with Claims
+
+Claims are the core entity in OTRUST, representing statements that can be verified, disputed, or invalidated.
+
+### Creating a New Claim
+
+You can create a new claim interactively:
+
+```bash
+otrust-cli claim:create --interactive
+```
+
+Or provide all parameters directly:
+
+```bash
+otrust-cli claim:create \
+  --claim "Stockholm is the capital of Sweden" \
+  --evidence "https://en.wikipedia.org/wiki/Stockholm" \
+  --type factual \
+  --subject "Stockholm" \
+  --predicate "is the capital of" \
+  --object "Sweden"
+```
+
+### Viewing Claims
+
+To view a specific claim:
+
+```bash
+otrust-cli claim:get <claim-id>
+```
+
+To list claims with optional filtering:
+
+```bash
+otrust-cli claim:list --type factual --subject "Stockholm" --sort credibility
+```
+
+Available filters include:
+- `--page` and `--limit` for pagination
+- `--type` for claim type
+- `--subject`, `--predicate`, and `--object` for semantic filtering
+- `--user` for filtering by user
+- `--verified` for filtering by verification status
+- `--sort` to sort by newest, oldest, or credibility
+
+### Verifying Claims
+
+To verify a claim against the blockchain:
+
+```bash
+otrust-cli verify <claim-id>
+```
+
+## Working with Proofs
+
+Proofs are verifications, disputes, or invalidations of claims.
+
+### Adding a Proof
+
+You can add a proof interactively:
+
+```bash
+otrust-cli proof:add --interactive
+```
+
+Or provide all parameters directly:
+
+```bash
+otrust-cli proof:add \
+  --claim-id <claim-id> \
+  --action confirmed \
+  --reason "This information is correct based on multiple sources" \
+  --confidence 0.9
+```
+
+The available actions are:
+- `confirmed` - You verify the claim as correct
+- `disputed` - You dispute the claim's accuracy
+- `invalidated` - You assert the claim is completely invalid
+
+## Searching
+
+### Searching for Claims
+
+To search for claims:
+
+```bash
+otrust-cli search "Stockholm"
+```
+
+### Semantic Queries
+
+To perform a semantic query:
+
+```bash
+otrust-cli semantic "Stockholm" "is the capital of"
+```
+
+This returns all claims about the subject "Stockholm" with the predicate "is the capital of".
+
+## System Information
+
+### User Information
+
+To view information about a user:
+
+```bash
+otrust-cli user:info <public-key>
+```
+
+Without parameters, this shows your own user information:
+
+```bash
+otrust-cli user:info
+```
+
+### Blockchain Statistics
+
+To view blockchain statistics:
+
+```bash
+otrust-cli blockchain:stats
+```
+
+### System Statistics
+
+To view system-wide statistics:
+
+```bash
+otrust-cli stats
+```
+
+### Health Check
+
+To check the health of the OTRUST server:
+
+```bash
+otrust-cli health
+```
+
+## Using as a Library
+
+The OTRUST CLI can also be used as a JavaScript library in your applications:
+
+```javascript
+const OtrustCLI = require('otrust-cli');
+
+async function main() {
+  const otrust = new OtrustCLI({
+    server: 'https://api.otrust.example.com'
+  });
+  
+  // Initialize a key pair
+  await otrust.init();
+  
+  // Register and login
+  await otrust.register();
+  
+  // Create a claim
+  const claim = await otrust.createClaim({
+    claim: 'Stockholm is the capital of Sweden',
+    evidence: ['https://en.wikipedia.org/wiki/Stockholm'],
+    type: 'factual',
+    semantic: {
+      subject: 'Stockholm',
+      predicate: 'is the capital of',
+      object: 'Sweden'
+    }
+  });
+  
+  console.log('Claim created with ID:', claim.id);
+}
+
+main().catch(console.error);
+```
+
+For detailed API documentation, see the [API Documentation](API.md).
+
+## Troubleshooting
+
+### Common Issues
+
+1. **Connection problems**: Ensure the server URL is correct in your configuration.
+2. **Authentication errors**: Make sure you have generated a key pair and registered/logged in.
+3. **Permission issues**: Check that you have the necessary permissions for the operation.
+
+For more help, run any command with `--help` to see available options:
+
+```bash
+otrust-cli --help
+otrust-cli claim:create --help
+```
+
+## Further Resources
+
+- [OTRUST Server Documentation](https://github.com/otrust-eu/otrust-docs)
+- [OTRUST API Reference](https://github.com/otrust-eu/otrust-docs/OTRUST-API-Documentation.md)
+- [GitHub Repository](https://github.com/otrust-eu/otrust-cli)
